@@ -30,29 +30,38 @@ SHAPESCOLOR = {
     "J": "orange",
 }
 
-def draw_cell(canvas, column, row, color="#CCCCCC"):
+def draw_cell(canvas, column, row, color="#CCCCCC", tag_kind=""):
     x0 = column * CELL_SIZE
     y0 = row * CELL_SIZE
     x1 = x0 + CELL_SIZE
     y1 = y0 + CELL_SIZE
-    canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
+    if tag_kind == "falling":
+        canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2, tag=tag_kind)
+    elif tag_kind == "row":
+        canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2, tag="row-%s" % row)
+    else:
+        canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
 
-def draw_board(canvas, block_list):
-    for row in range(ROW_NUM):
-        for column in range(COLUMN_NUM):
-            cell_type = block_list[row][column]
+
+def draw_board(canvas, block_list, isFirst=False):
+    for row_i in range(ROW_NUM):
+        canvas.delete("row-%s" % row_i)
+
+    for row_i in range(ROW_NUM):
+        for column_i in range(COLUMN_NUM):
+            cell_type = block_list[row_i][column_i]
             if cell_type:
-                draw_cell(canvas, column, row, SHAPESCOLOR[cell_type])
-            else:
-                draw_cell(canvas, column, row)
+                draw_cell(canvas, column_i, row_i, SHAPESCOLOR[cell_type], tag_kind="row")
+            elif isFirst:
+                draw_cell(canvas, column_i, row_i)
 
 def draw_cells(canvas, column, row, cell_list, color="#CCCCCC"):
     for cell in cell_list:
         cell_column, cell_row = cell
         column_i = cell_column + column
         row_i = cell_row + row
-        if 0 <= column < COLUMN_NUM and 0 <= row < ROW_NUM:
-            draw_cell(canvas, column_i, row_i, color)
+        if 0 <= column_i < COLUMN_NUM and 0 <= row_i < ROW_NUM:
+            draw_cell(canvas, column_i, row_i, color, tag_kind="falling")
 
 win = tk.Tk()
 canvas = tk.Canvas(win, width=width, height=height) # 创建窗口
@@ -65,7 +74,7 @@ for i in range(ROW_NUM):
     i_row = ['' for j in range(COLUMN_NUM)]
     block_list.append(i_row)
 
-draw_board(canvas, block_list) # 新的初始化方式
+draw_board(canvas, block_list, True) # 新的初始化方式
 
 # draw_cells(canvas, 3, 3, SHAPES["O"], SHAPESCOLOR["O"])
 
@@ -74,7 +83,8 @@ def draw_block_move(canvas, block, direction=[0, 0]): # 方块移动操作，不
     col, row = block['cr']
     cell_list = block['cell_list']
 
-    draw_cells(canvas, col, row, cell_list) # 用灰色把原来的“擦掉”
+    # draw_cells(canvas, col, row, cell_list) # 用灰色把原来的“擦掉”
+    canvas.delete("falling")
 
     delta_c, delta_r = direction
     new_col = col + delta_c
@@ -110,6 +120,8 @@ def check_move(block, direction=[0, 0]):
     return True
 
 def save_block_to_list(block):
+    canvas.delete("falling")
+
     shape_type = block['kind']
     col, row = block['cr']
     cell_list = block['cell_list']
@@ -120,14 +132,17 @@ def save_block_to_list(block):
         r = cell_row + row
         block_list[r][c] = shape_type
 
-def lr_move_block(event): # 左右键操控方块
-    direction = [0, 0]
-    if event.keysym == "Left":
-        direction = [-1, 0]
-    elif event.keysym == "Right":
-        direction = [1, 0]
-    else:
-        return
+        draw_cell(canvas, c, r, SHAPESCOLOR[shape_type], tag_kind="row")
+
+def l_move_block(event): # 左右键操控方块
+    direction = [-1, 0]
+
+    global current_block
+    if current_block is not None and check_move(current_block, direction):
+        draw_block_move(canvas, current_block, direction)
+
+def r_move_block(event): # 左右键操控方块
+    direction = [1, 0]
 
     global current_block
     if current_block is not None and check_move(current_block, direction):
@@ -183,6 +198,17 @@ def land(event): # 下键直接落地
     down = [0 , min_height]
     if check_move(current_block, down):
         draw_block_move(canvas, current_block, down)
+
+def on_key_press(event):
+    key = event.char.lower()
+    if key == "w":
+        rotate_block(event)
+    elif key == "s":
+        land(event)
+    elif key == "a":
+        l_move_block(event)
+    elif key == "d":
+        r_move_block(event)
 
 def game_loop():
     win.update()
@@ -241,10 +267,14 @@ def check_and_clear():
 
 
 canvas.focus_set()
-canvas.bind("<KeyPress-Left>", lr_move_block)
-canvas.bind("<KeyPress-Right>", lr_move_block)
+canvas.bind("<KeyPress-Left>", l_move_block)
+canvas.bind("<a>", on_key_press)
+canvas.bind("<KeyPress-Right>", r_move_block)
+canvas.bind("<d>", on_key_press)
 canvas.bind("<KeyPress-Up>", rotate_block)
+canvas.bind("<w>", on_key_press)
 canvas.bind("<KeyPress-Down>", land)
+canvas.bind("<s>", on_key_press)
 
 current_block = None
 
