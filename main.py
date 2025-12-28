@@ -1,14 +1,34 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import random as rd
 
-FPS = 300 # 刷新间隔300ms
+# FPS = 300 # 刷新间隔300ms
+
+# 先获取玩家输入的下落速度
+root = tk.Tk()
+root.withdraw()  # 隐藏主窗口
+while True:
+    try:
+        fps_input = simpledialog.askinteger(
+            "Set speed",
+            "Please enter the falling speed (10-1000 milliseconds, the smaller the number, the faster the speed):",
+            minvalue=10,
+            maxvalue=1000
+        )
+        if fps_input is None:  # 用户取消输入
+            exit()
+        FPS = fps_input
+        break
+    except:
+        messagebox.showwarning("Input error", "Please enter an integer between 10 and 1000")
 
 CELL_SIZE = 30
 COLUMN_NUM = 12
 ROW_NUM = 25
 height = CELL_SIZE * ROW_NUM
 width = CELL_SIZE * COLUMN_NUM
+
+SCORE_AREA_HEIGHT = 40
 
 SHAPES = {
     "O": [(-1, -1), (0, -1), (-1, 0), (0, 0)],
@@ -31,8 +51,10 @@ SHAPESCOLOR = {
 }
 
 def draw_cell(canvas, column, row, color="#CCCCCC", tag_kind=""):
+    if row < 0 or row >= ROW_NUM:
+        return
     x0 = column * CELL_SIZE
-    y0 = row * CELL_SIZE
+    y0 = row * CELL_SIZE + SCORE_AREA_HEIGHT
     x1 = x0 + CELL_SIZE
     y1 = y0 + CELL_SIZE
     if tag_kind == "falling":
@@ -41,7 +63,6 @@ def draw_cell(canvas, column, row, color="#CCCCCC", tag_kind=""):
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2, tag="row-%s" % row)
     else:
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
-
 
 def draw_board(canvas, block_list, isFirst=False):
     for row_i in range(ROW_NUM):
@@ -63,8 +84,18 @@ def draw_cells(canvas, column, row, cell_list, color="#CCCCCC"):
         if 0 <= column_i < COLUMN_NUM and 0 <= row_i < ROW_NUM:
             draw_cell(canvas, column_i, row_i, color, tag_kind="falling")
 
+def update_score_display(canvas, score):
+    canvas.delete("score")
+    canvas.create_rectangle(0, 0, width, SCORE_AREA_HEIGHT, fill="#333333", outline="", tag="score")
+    canvas.create_text(width / 2, SCORE_AREA_HEIGHT / 2,
+                       text=f"score: {score}",
+                       fill="white",
+                       font=("SimHei", 14, "bold"),
+                       tag="score")
+
 win = tk.Tk()
-canvas = tk.Canvas(win, width=width, height=height) # 创建窗口
+win.title("Tetris")
+canvas = tk.Canvas(win, width=width, height=height+SCORE_AREA_HEIGHT) # 创建窗口
 canvas.pack()
 
 #draw_blank_board(canvas) # 初始化背板
@@ -75,6 +106,7 @@ for i in range(ROW_NUM):
     block_list.append(i_row)
 
 draw_board(canvas, block_list, True) # 新的初始化方式
+update_score_display(canvas, 0)
 
 # draw_cells(canvas, 3, 3, SHAPES["O"], SHAPESCOLOR["O"])
 
@@ -130,9 +162,9 @@ def save_block_to_list(block):
         cell_column, cell_row = cell
         c = cell_column + col
         r = cell_row + row
-        block_list[r][c] = shape_type
-
-        draw_cell(canvas, c, r, SHAPESCOLOR[shape_type], tag_kind="row")
+        if 0 <= c < COLUMN_NUM or r >= ROW_NUM:
+            block_list[r][c] = shape_type
+            draw_cell(canvas, c, r, SHAPESCOLOR[shape_type], tag_kind="row")
 
 def l_move_block(event): # 左右键操控方块
     direction = [-1, 0]
@@ -216,12 +248,14 @@ def game_loop():
     global current_block
     if current_block is None:
         new_block = generate_new_block()
-        draw_block_move(canvas, new_block)
-        current_block = new_block
-        if not check_move(current_block):
+        if not check_move(new_block):
             messagebox.showinfo("Game Over", "Your Score: %s" % score)
+            win.quit()
             win.destroy()
             return
+        draw_block_move(canvas, new_block)
+        current_block = new_block
+
     else:
         if check_move(current_block, [0, 1]):
             draw_block_move(canvas, current_block, [0, 1])
@@ -234,8 +268,8 @@ def game_loop():
     win.after(FPS, game_loop)
 
 score = 0
-win.title("Score: "+str(score))
-
+# win.title("Score: "+str(score))
+update_score_display(canvas, score)
 
 def check_row_complete(row):
     for cell in row:
@@ -262,8 +296,8 @@ def check_and_clear():
 
     if has_complete_row:
         draw_board(canvas, block_list)
-        win.title("Score: %s" % score)
-
+        #win.title("Score: %s" % score)
+        update_score_display(canvas, score)
 
 
 canvas.focus_set()
