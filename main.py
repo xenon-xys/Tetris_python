@@ -6,8 +6,11 @@ import sys
 
 def get_high_score():
     try:
-        if os.path.exists("high_score.score"):
-            with open("high_score.score", "r") as f:
+        program_path = os.path.abspath(sys.argv[0])
+        program_dir = os.path.dirname(program_path)
+        score_path = os.path.join(program_dir, "high_score.dat")
+        if os.path.exists(score_path):
+            with open(score_path, "r") as f:
                 content = f.read().strip()
                 if ":" in content:
                     score_str, fps_str = content.split(":")
@@ -21,9 +24,15 @@ def get_high_score():
 def save_high_score(score,current_fps):
     current_high_score,_ = get_high_score()
     if score > current_high_score:
-        with open("high_score.score", "w") as f:
-            f.write(f"{score}:{current_fps}")
-        return True
+        try:
+            program_path = os.path.abspath(sys.argv[0])
+            program_dir = os.path.dirname(program_path)
+            score_path = os.path.join(program_dir, "high_score.dat")
+            with open(score_path, "w") as f:
+                f.write(f"{score}:{current_fps}")
+            return True
+        except Exception as e:
+            return False
     return False
 
 # FPS = 300 # 刷新间隔300ms
@@ -202,8 +211,11 @@ def check_move(block, direction=[0, 0]):
         r = cell_row + row + direction[1]
         if c < 0 or c >= COLUMN_NUM or r >= ROW_NUM:
             return False
-        if r>=0 and block_list[r][c]:
-            return False
+        if r>=0:
+            if block_list[r][c]:
+                return False
+        else:
+            pass
 
     return True
 
