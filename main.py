@@ -1,24 +1,55 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import random as rd
+import os
+import sys
+
+def get_high_score():
+    try:
+        if os.path.exists("high_score.score"):
+            with open("high_score.txt", "r") as f:
+                content = f.read().strip()
+                if ":" in content:
+                    score_str, fps_str = content.split(":")
+                    high_score = int(score_str)
+                    high_fps = int(fps_str)
+                    return high_score, high_fps
+        return 0,0
+    except Exception as e:
+        return 0,0
+
+def save_high_score(score,current_fps):
+    current_high_score,_ = get_high_score()
+    if score > current_high_score:
+        with open("high_score.score", "w") as f:
+            f.write(f"{score}:{current_fps}")
+        return True
+    return False
 
 # FPS = 300 # 刷新间隔300ms
 
 # 先获取玩家输入的下落速度
 root = tk.Tk()
 root.withdraw()  # 隐藏主窗口
+FPS = None
 while True:
+    high_score, high_fps = get_high_score()
+    fps_input = simpledialog.askinteger(
+        "Set speed",
+        f"Please enter the falling speed (10-1000 milliseconds, the smaller the number, the faster the speed):\nHigh Score: {high_score} (FPS: {high_fps})",
+        minvalue=10,
+        maxvalue=1000
+    )
+    if fps_input is None:  # 用户取消输入
+        root.destroy()
+        sys.exit(0)
     try:
-        fps_input = simpledialog.askinteger(
-            "Set speed",
-            "Please enter the falling speed (10-1000 milliseconds, the smaller the number, the faster the speed):",
-            minvalue=10,
-            maxvalue=1000
-        )
-        if fps_input is None:  # 用户取消输入
-            exit()
-        FPS = fps_input
-        break
+        fps_input = int(fps_input)
+        if 10<= fps_input <= 1000:
+            FPS = fps_input
+            break
+        else:
+            messagebox.showwarning("Input error", "Please enter an integer between 10 and 1000")
     except:
         messagebox.showwarning("Input error", "Please enter an integer between 10 and 1000")
 
@@ -28,7 +59,7 @@ ROW_NUM = 25
 height = CELL_SIZE * ROW_NUM
 width = CELL_SIZE * COLUMN_NUM
 
-SCORE_AREA_HEIGHT = 40
+SCORE_AREA_HEIGHT = 60
 
 SHAPES = {
     "O": [(-1, -1), (0, -1), (-1, 0), (0, 0)],
@@ -87,8 +118,14 @@ def draw_cells(canvas, column, row, cell_list, color="#CCCCCC"):
 def update_score_display(canvas, score):
     canvas.delete("score")
     canvas.create_rectangle(0, 0, width, SCORE_AREA_HEIGHT, fill="#333333", outline="", tag="score")
-    canvas.create_text(width / 2, SCORE_AREA_HEIGHT / 2,
-                       text=f"score: {score}",
+    canvas.create_text(width / 2, SCORE_AREA_HEIGHT * 2 / 3,
+                       text=f"Score: {score}",
+                       fill="white",
+                       font=("SimHei", 12, "bold"),
+                       tag="score")
+    high_score, high_fps = get_high_score()
+    canvas.create_text(width / 2, SCORE_AREA_HEIGHT / 3,
+                       text=f"High Score: {high_score}(FPS: {high_fps})",
                        fill="white",
                        font=("SimHei", 14, "bold"),
                        tag="score")
@@ -97,6 +134,19 @@ win = tk.Tk()
 win.title("Tetris")
 canvas = tk.Canvas(win, width=width, height=height+SCORE_AREA_HEIGHT) # 创建窗口
 canvas.pack()
+
+win.attributes("-topmost", True)
+win.update_idletasks()
+canvas.focus_set()
+def set_canvas_focus():
+    win.focus_force()
+    canvas.focus_set()
+    # print("Canvas已自动获取焦点")
+win.after(200, set_canvas_focus)
+
+def on_canvas_focus(event):
+    canvas.focus_set()
+win.bind("<FocusIn>", on_canvas_focus)
 
 #draw_blank_board(canvas) # 初始化背板
 
@@ -249,7 +299,9 @@ def game_loop():
     if current_block is None:
         new_block = generate_new_block()
         if not check_move(new_block):
-            messagebox.showinfo("Game Over", "Your Score: %s" % score)
+            save_high_score(score,FPS)
+            final_high_score, final_high_fps = get_high_score()
+            messagebox.showinfo("Game Over", f"Your Score: {score}\nHigh Score: {final_high_score}(FPS: {final_high_fps})")
             win.quit()
             win.destroy()
             return
@@ -303,12 +355,16 @@ def check_and_clear():
 canvas.focus_set()
 canvas.bind("<KeyPress-Left>", l_move_block)
 canvas.bind("<a>", on_key_press)
+canvas.bind("<A>", on_key_press)
 canvas.bind("<KeyPress-Right>", r_move_block)
 canvas.bind("<d>", on_key_press)
+canvas.bind("<D>", on_key_press)
 canvas.bind("<KeyPress-Up>", rotate_block)
 canvas.bind("<w>", on_key_press)
+canvas.bind("<W>", on_key_press)
 canvas.bind("<KeyPress-Down>", land)
 canvas.bind("<s>", on_key_press)
+canvas.bind("<S>", on_key_press)
 
 current_block = None
 
