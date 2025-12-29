@@ -7,7 +7,7 @@ import sys
 def get_high_score():
     try:
         if os.path.exists("high_score.score"):
-            with open("high_score.txt", "r") as f:
+            with open("high_score.score", "r") as f:
                 content = f.read().strip()
                 if ":" in content:
                     score_str, fps_str = content.split(":")
@@ -132,6 +132,12 @@ def update_score_display(canvas, score):
 
 win = tk.Tk()
 win.title("Tetris")
+
+def on_closing():
+    win.destroy()
+    sys.exit(0)
+win.protocol("WM_DELETE_WINDOW", on_closing)
+
 canvas = tk.Canvas(win, width=width, height=height+SCORE_AREA_HEIGHT) # 创建窗口
 canvas.pack()
 
